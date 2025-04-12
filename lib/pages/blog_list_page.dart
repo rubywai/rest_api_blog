@@ -1,9 +1,13 @@
-import 'package:blog_rest_api/blog_notifier/blog_notifier.dart';
-import 'package:blog_rest_api/data/models/post_model.dart';
-import 'package:blog_rest_api/pages/post_detail_page.dart';
-import 'package:blog_rest_api/pages/upload_post_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../blog_notifier/blog_notifier.dart';
+import '../data/models/post_model.dart';
+import '../data/models/post_update_model.dart';
+import '../widgets/post_list_desktop.dart';
+import '../widgets/post_list_mobile_widget.dart';
+import 'post_detail_page.dart';
+import 'upload_post_page.dart';
 
 class BlogListPage extends StatefulWidget {
   const BlogListPage({super.key});
@@ -19,6 +23,7 @@ class _BlogListPageState extends State<BlogListPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<BlogNotifier>(context, listen: false).initService();
       _getAllPost();
     });
   }
@@ -54,52 +59,45 @@ class _BlogListPageState extends State<BlogListPage> {
           if (_isError) Center(child: Text('Something wrong')),
           if (!_isError && !_isLoading)
             Expanded(
-              child:
-                  Consumer<BlogNotifier>(builder: (context, notifier, child) {
-                List<PostModel> posts = notifier.postList;
-                if (posts.isEmpty) {
-                  return Text("Empty list");
-                }
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    _getAllPost();
-                  },
-                  child: ListView.builder(
-                    padding: EdgeInsets.all(8.0),
-                    itemCount: posts.length,
-                    itemBuilder: (context, index) {
-                      PostModel post = posts[index];
-                      return InkWell(
-                        onTap: () {
-                          int? id = post.id;
-                          if (id != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) {
-                                  return PostDetailPage(id: id);
-                                },
-                              ),
-                            );
-                          }
-                        },
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(post.title ?? ''),
-                          ),
-                        ),
-                      );
+              child: Consumer<BlogNotifier>(
+                builder: (context, notifier, child) {
+                  List<PostModel> posts = notifier.postList;
+                  if (posts.isEmpty) {
+                    return Text("Empty list");
+                  }
+                  double width = MediaQuery.of(context).size.width;
+
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      _getAllPost();
                     },
-                  ),
-                );
-              }),
+                    child: width <= 600
+                        ? PostListMobileWidget(
+                            posts: posts,
+                            children: (post) {
+                              return _children(post, notifier);
+                            },
+                            onTap: (post) {
+                              _redirectToDetail(post, notifier);
+                            },
+                          )
+                        : PostListDesktop(
+                            posts: posts,
+                            children: (post) {
+                              return _children(post, notifier);
+                            },
+                            onTap: (post) {
+                              _redirectToDetail(post, notifier);
+                            }),
+                  );
+                },
+              ),
             ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.push(
+        onPressed: () {
+          Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) {
@@ -107,9 +105,85 @@ class _BlogListPageState extends State<BlogListPage> {
               },
             ),
           );
-          _getAllPost();
         },
         child: Icon(Icons.add),
+      ),
+    );
+  }
+
+  List<Widget> _children(PostModel post, BlogNotifier notifier) {
+    return [
+      Text(
+        post.title ?? '',
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+      ),
+      IconButton(
+        onPressed: () async {
+          bool? isDelete = await showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: Text("Are you sure to delete?"),
+                content: Text(post.title ?? ''),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: Text("Cancel"),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.pop(context, true);
+                    },
+                    child: Text("OK"),
+                  ),
+                ],
+              );
+            },
+          );
+          if (isDelete == true) {
+            if (post.id != null) {
+              try {
+                setState(() {
+                  _isLoading = true;
+                });
+                PostOptionsModel optionModel =
+                    await notifier.deletePost(post.id!);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(optionModel.result ?? ''),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Not successful'),
+                    ),
+                  );
+                }
+              } finally {
+                setState(() {
+                  _isLoading = false;
+                });
+              }
+            }
+          }
+        },
+        icon: Icon(Icons.delete),
+      ),
+    ];
+  }
+
+  void _redirectToDetail(PostModel post, BlogNotifier notifier) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PostDetailPage(id: post.id!),
       ),
     );
   }

@@ -1,16 +1,24 @@
-import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:blog_rest_api/data/models/post_update_model.dart';
 import 'package:blog_rest_api/data/models/updload_model.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/services.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../../const/url_const.dart';
 import '../models/post_model.dart';
 
 class BlogApiService {
-  final Dio _dio = Dio(
-    BaseOptions(baseUrl: UrlConst.baseUrl),
-  );
+  late Dio _dio;
+  void initDio() {
+    _dio = Dio(
+      BaseOptions(baseUrl: UrlConst.baseUrl),
+    );
+    _dio.interceptors.add(PrettyDioLogger(
+      responseHeader: true,
+    ));
+  }
+
   Future<List<PostModel>> getPostList() async {
     final response = await _dio.get(UrlConst.all);
     List<dynamic> list = response.data as List;
@@ -30,12 +38,12 @@ class BlogApiService {
   Future<UploadModel> uploadPost({
     required String title,
     required String body,
-    File? photo,
+    Uint8List? photo,
   }) async {
     FormData? formData;
     if (photo != null) {
       formData = FormData.fromMap({
-        'photo': await MultipartFile.fromFile(photo.path),
+        'photo': MultipartFile.fromBytes(photo),
       });
     }
     final response = await _dio.post(
@@ -43,5 +51,24 @@ class BlogApiService {
       data: formData,
     );
     return UploadModel.fromJson(response.data);
+  }
+
+  Future<PostOptionsModel> updatePost({
+    required String title,
+    required body,
+    required int id,
+  }) async {
+    final response = await _dio.put(UrlConst.post, queryParameters: {
+      "id": id,
+      "title": title,
+      "body": body,
+    });
+    return PostOptionsModel.fromJson(response.data);
+  }
+
+  Future<PostOptionsModel> deletePost(int id) async {
+    final response =
+        await _dio.delete(UrlConst.post, queryParameters: {"id": id});
+    return PostOptionsModel.fromJson(response.data);
   }
 }

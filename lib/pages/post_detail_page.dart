@@ -1,8 +1,10 @@
-import 'package:blog_rest_api/blog_notifier/blog_notifier.dart';
-import 'package:blog_rest_api/const/url_const.dart';
-import 'package:blog_rest_api/data/models/post_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../blog_notifier/blog_notifier.dart';
+import '../const/url_const.dart';
+import '../data/models/post_model.dart';
+import 'update_post_page.dart';
 
 class PostDetailPage extends StatefulWidget {
   const PostDetailPage({super.key, required this.id});
@@ -15,6 +17,7 @@ class PostDetailPage extends StatefulWidget {
 class _PostDetailPageState extends State<PostDetailPage> {
   bool _isLoading = true;
   bool _isError = false;
+  PostModel? _postModel;
   @override
   void initState() {
     super.initState();
@@ -45,6 +48,22 @@ class _PostDetailPageState extends State<PostDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Post Detail'),
+        actions: [
+          if (_postModel != null)
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UpdatePostPage(
+                      postModel: _postModel!,
+                    ),
+                  ),
+                );
+              },
+              icon: Icon(Icons.edit),
+            )
+        ],
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -59,18 +78,41 @@ class _PostDetailPageState extends State<PostDetailPage> {
               child:
                   Consumer<BlogNotifier>(builder: (context, notifier, child) {
                 PostModel? post = notifier.postModel;
+                Future(() {
+                  setState(() {
+                    _postModel = post;
+                  });
+                });
                 if (post == null) {
                   return SizedBox.shrink();
                 }
                 String imageUrl = "${UrlConst.baseUrl}/${post.photo}";
-                return Column(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Text(post.title ?? ''),
-                    Text(post.body ?? ''),
-                    if (post.photo != null) Image.network(imageUrl),
-                  ],
+                return Center(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Text(post.title ?? ''),
+                        Text(post.body ?? ''),
+                        if (post.photo != null)
+                          Image.network(
+                            imageUrl,
+                            loadingBuilder: (_, child, loadingProgress) {
+                              if (loadingProgress == null) {
+                                return child;
+                              }
+                              return Container(
+                                alignment: Alignment.center,
+                                width: double.infinity,
+                                height: 200,
+                                child: CircularProgressIndicator(),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
                 );
               }),
             ),

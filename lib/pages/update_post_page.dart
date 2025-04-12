@@ -1,25 +1,36 @@
 import 'package:blog_rest_api/blog_notifier/blog_notifier.dart';
-import 'package:blog_rest_api/data/models/updload_model.dart';
+import 'package:blog_rest_api/data/models/post_model.dart';
+import 'package:blog_rest_api/data/models/post_update_model.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-class UploadPostPage extends StatefulWidget {
-  const UploadPostPage({super.key});
+class UpdatePostPage extends StatefulWidget {
+  const UpdatePostPage({
+    super.key,
+    required this.postModel,
+  });
+  final PostModel postModel;
 
   @override
-  State<UploadPostPage> createState() => _UploadPostPageState();
+  State<UpdatePostPage> createState() => _UpdatePostPage();
 }
 
-class _UploadPostPageState extends State<UploadPostPage> {
+class _UpdatePostPage extends State<UpdatePostPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _bodyController = TextEditingController();
-  Uint8List? _photo;
 
-  UploadModel? _uploadModel;
+  PostOptionsModel? _updateModel;
   bool? _isLoading = false;
   bool? _isError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    PostModel postModel = widget.postModel;
+    _titleController.text = postModel.title ?? '';
+    _bodyController.text = postModel.body ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -37,11 +48,11 @@ class _UploadPostPageState extends State<UploadPostPage> {
             Center(
               child: Text("Something wrong"),
             ),
-          if (_uploadModel != null)
+          if (_updateModel != null)
             Center(
               child: Column(
                 children: [
-                  Text("Success"),
+                  Text(_updateModel?.result ?? "Success"),
                   OutlinedButton(
                     onPressed: () {
                       Navigator.pop(context);
@@ -51,7 +62,7 @@ class _UploadPostPageState extends State<UploadPostPage> {
                 ],
               ),
             ),
-          if (_uploadModel == null && _isLoading != true && _isError != true)
+          if (_updateModel == null && _isLoading != true && _isError != true)
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Column(
@@ -77,21 +88,6 @@ class _UploadPostPageState extends State<UploadPostPage> {
                       enabledBorder: OutlineInputBorder(),
                     ),
                   ),
-                  TextButton(
-                    onPressed: () async {
-                      ImagePicker picker = ImagePicker();
-                      XFile? xFile =
-                          await picker.pickImage(source: ImageSource.gallery);
-                      if (xFile != null) {
-                        Uint8List? photo = await xFile.readAsBytes();
-                        setState(() {
-                          _photo = photo;
-                        });
-                      }
-                    },
-                    child: Text('Choose Image(Optional)'),
-                  ),
-                  if (_photo != null) Image.memory(_photo!),
                   FilledButton(
                     onPressed: () async {
                       String title = _titleController.text;
@@ -101,18 +97,21 @@ class _UploadPostPageState extends State<UploadPostPage> {
                           setState(() {
                             _isLoading = true;
                           });
-                          final uploadModel = await Provider.of<BlogNotifier>(
+                          int? id = widget.postModel.id;
+                          if (id == null) {
+                            return;
+                          }
+                          _updateModel = await Provider.of<BlogNotifier>(
                                   context,
                                   listen: false)
-                              .uploadPost(
+                              .updatePost(
                             title: title,
                             body: body,
-                            photo: _photo,
+                            id: id,
                           );
                           setState(() {
                             _isLoading = false;
                             _isError = false;
-                            _uploadModel = uploadModel;
                           });
                         } catch (e) {
                           setState(() {
@@ -127,7 +126,7 @@ class _UploadPostPageState extends State<UploadPostPage> {
                         );
                       }
                     },
-                    child: Text("Upload"),
+                    child: Text("Update"),
                   ),
                 ],
               ),

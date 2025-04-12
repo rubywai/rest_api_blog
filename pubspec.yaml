@@ -37,6 +37,7 @@ dependencies:
   dio: ^5.8.0+1
   provider: ^6.1.4
   image_picker: ^1.1.2
+  pretty_dio_logger: ^1.4.0
 
 dev_dependencies:
   flutter_test:
